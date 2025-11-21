@@ -21,14 +21,25 @@ function BookViewer({ images = [], title }) {
   // Responsive size calculation
   useEffect(() => {
     const calc = () => {
-      const vw = Math.max(320, window.innerWidth - 48);
-      const bw = Math.min(1000, vw);
-      const bh = Math.round(bw * 0.72);
-      setBookSize({ width: bw, height: bh });
-      const s = Math.min(1, (window.innerWidth - 32) / bw);
-      setScale(s);
-      // determine single-page mode on small devices
-      setIsSinglePage(window.innerWidth < 700);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const mobile = w < 700;
+      setIsSinglePage(mobile);
+
+      if (mobile) {
+        // On mobile, use a larger, taller book to make pages more readable.
+        const bw = Math.round(w * 0.92); // ~92% of viewport width
+        const bh = Math.round(Math.min(h * 0.82, bw * 1.4)); // tall but not excessive
+        setBookSize({ width: bw, height: bh });
+        setScale(1);
+      } else {
+        const vw = Math.max(320, w - 48);
+        const bw = Math.min(1000, vw);
+        const bh = Math.round(bw * 0.72);
+        setBookSize({ width: bw, height: bh });
+        const s = Math.min(1, (w - 32) / bw);
+        setScale(s);
+      }
     };
     calc();
     window.addEventListener('resize', calc);
