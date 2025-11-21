@@ -5,6 +5,7 @@ import './Bookviewer.css';
 function BookViewer({ images = [], title }) {
   const bookRef = useRef(null);
   const containerRef = useRef(null);
+  const titleRef = useRef(null);
   const [currentSpread, setCurrentSpread] = useState(0);
   const [bookSize, setBookSize] = useState({ width: 900, height: 650 });
   const [scale, setScale] = useState(1);
@@ -63,6 +64,23 @@ function BookViewer({ images = [], title }) {
     return () => window.removeEventListener('resize', calc);
   }, []);
 
+  // Set CSS --vh custom property for mobile viewport height issues
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+      // measure title height and set CSS var
+      const th = titleRef.current ? titleRef.current.offsetHeight : 56;
+      document.documentElement.style.setProperty('--bv-title-height', `${th + 8}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', setVh);
+    return () => {
+      window.removeEventListener('resize', setVh);
+      window.removeEventListener('orientationchange', setVh);
+    };
+  }, []);
+
   // autoplay effect
   useEffect(() => {
     if (!autoPlay) return undefined;
@@ -84,7 +102,7 @@ function BookViewer({ images = [], title }) {
     <div className="book-viewer-container">
       {title && (
         <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <h1 className="bv-title">{title}</h1>
+          <h1 className="bv-title" ref={titleRef}>{title}</h1>
         </div>
       )}
 
