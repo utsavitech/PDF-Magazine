@@ -1,120 +1,120 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import HTMLFlipBook from 'react-pageflip';
+import './Bookviewer.css';
 
-function BookViewer({ images, title }) {
+function BookViewer({ images = [], title }) {
   const bookRef = useRef(null);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentSpread, setCurrentSpread] = useState(0);
+  const [bookSize, setBookSize] = useState({ width: 900, height: 650 });
+  const [scale, setScale] = useState(1);
+  const [isSinglePage, setIsSinglePage] = useState(false);
 
-  // Group images into pairs so we render two pages side-by-side
-  const pairedPages = useMemo(() => {
-    const pairs = [];
-    for (let i = 0; i < images.length; i += 2) {
-      pairs.push(images.slice(i, i + 2));
-    }
-    return pairs;
+  // Create spreads (pairs of pages)
+  const spreads = useMemo(() => {
+    const s = [];
+    for (let i = 0; i < images.length; i += 2) s.push(images.slice(i, i + 2));
+    return s;
   }, [images]);
 
+  useEffect(() => setCurrentSpread(0), [images]);
+
+  // Responsive size calculation
+  useEffect(() => {
+    const calc = () => {
+      const vw = Math.max(320, window.innerWidth - 48);
+      const bw = Math.min(1000, vw);
+      const bh = Math.round(bw * 0.72);
+      setBookSize({ width: bw, height: bh });
+      const s = Math.min(1, (window.innerWidth - 32) / bw);
+      setScale(s);
+      // determine single-page mode on small devices
+      setIsSinglePage(window.innerWidth < 700);
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+
   const onFlip = (e) => {
-    setCurrentPage(e.data);
+    // e.data is the current flipbook page index (0-based where each child is a spread)
+    setCurrentSpread(e.data);
   };
 
-  const flipPrev = () => bookRef.current && bookRef.current.pageFlip().flipPrev();
-  const flipNext = () => bookRef.current && bookRef.current.pageFlip().flipNext();
+  const prev = () => bookRef.current && bookRef.current.pageFlip().flipPrev();
+  const next = () => bookRef.current && bookRef.current.pageFlip().flipNext();
 
   return (
-    <div className="book-viewer" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '75vh', position: 'relative', flexDirection: 'column' }}>
-
-      {/* Styled centered title (if provided) */}
+    <div className="book-viewer-container">
       {title && (
         <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <h1 style={{
-            margin: 0,
-            marginBottom: 2,
-            padding: '1px 1px',
-            fontFamily: "'Poppins', 'Segoe UI', Roboto, Arial, sans-serif",
-            fontWeight: 800,
-            fontSize: 30,
-            color: '#0d47a1',
-            letterSpacing: 0.4,
-            textTransform: 'none',
-            display: 'inline-block',
-            background: 'linear-gradient(90deg, rgba(13,71,161,0.08), rgba(2,136,209,0.04))',
-            borderRadius: 8,
-            boxShadow: '0 6px 18px rgba(13,71,161,0.06)'
-          }}>{title}</h1>
+          <h1 className="bv-title">{title}</h1>
         </div>
       )}
-      <HTMLFlipBook
-        width={800}
-        height={600}
-        ref={bookRef}
-        onFlip={onFlip}
-        showCover={true}
-        mobileScrollSupport={true}
-        drawShadow={true}
-        maxShadowOpacity={0.4}
-      >
-        {pairedPages.map((pair, idx) => (
-          <div className="page" key={idx} style={{ padding: 0 }}>
-            <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              {pair.map((src, i) => (
-                <div key={i} style={{ flex: 1, padding: 4 }}>
-                  <img src={src} alt={`Page ${idx * 2 + i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                </div>
-              ))}
-              {pair.length === 1 && (
-                <div style={{ flex: 1, padding: 4 }} />
-              )}
-            </div>
-          </div>
-        ))}
-      </HTMLFlipBook>
 
-      {/* Left (Prev) button - vertically centered at the left side of the book */}
-      <button
-        onClick={flipPrev}
-        aria-label="Previous"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: 8,
-          transform: 'translateY(-50%)',
-          zIndex: 20,
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
-          border: 'none',
-          padding: '8px 12px',
-          borderRadius: 4,
-          cursor: 'pointer'
-        }}
-      >
-        Prev
-      </button>
+      <div className="flipbook-wrapper">
+        <div className="flipbook-inner" style={{ width: bookSize.width, height: bookSize.height, transform: `scale(${scale})`, position: 'relative' }}>
+          <HTMLFlipBook
+            key={isSinglePage ? 'single' : 'spread'}
+            width={bookSize.width}
+            height={bookSize.height}
+            ref={bookRef}
+            onFlip={onFlip}
+            showCover={false}
+            mobileScrollSupport={false}
+          >
+            {isSinglePage
+              ? images.map((src, idx) => (
+                  <div className="page" key={idx} style={{ padding: 0 }}>
+                    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+                      <div style={{ flex: 1, padding: 8 }}>
+                        <img src={src} alt={`Page ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              : spreads.map((pair, idx) => (
+                  <div className="page" key={idx} style={{ padding: 0 }}>
+                    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+                      <div style={{ flex: 1, padding: 8 }}>
+                        {pair[0] ? <img src={pair[0]} alt={`Page ${idx * 2 + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : null}
+                      </div>
+                      <div style={{ flex: 1, padding: 8 }}>
+                        {pair[1] ? <img src={pair[1]} alt={`Page ${idx * 2 + 2}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+          </HTMLFlipBook>
 
-      {/* Right (Next) button - vertically centered at the right side of the book */}
-      <button
-        onClick={flipNext}
-        aria-label="Next"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          right: 8,
-          transform: 'translateY(-50%)',
-          zIndex: 20,
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
-          border: 'none',
-          padding: '8px 12px',
-          borderRadius: 4,
-          cursor: 'pointer'
-        }}
-      >
-        Next
-      </button>
+          <button className="bv-overlay-btn bv-btn-left" onClick={prev} aria-label="Previous" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button className="bv-overlay-btn bv-btn-right" onClick={next} aria-label="Next" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      {/* Center label below the book */}
-      <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-        <span style={{ background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: 4 }}>Spread {currentPage + 1} of {pairedPages.length}</span>
+      <div style={{ marginTop: 10, textAlign: 'center' }}>
+        {isSinglePage ? (
+          <span style={{ background: 'rgba(255,255,255,0.95)', padding: '6px 10px', borderRadius: 6 }}>
+            Page {currentSpread + 1} of {images.length}
+          </span>
+        ) : (
+          (() => {
+            const leftPage = currentSpread * 2 + 1;
+            const rightPage = leftPage + 1 <= images.length ? leftPage + 1 : null;
+            return (
+              <span style={{ background: 'rgba(255,255,255,0.95)', padding: '6px 10px', borderRadius: 6 }}>
+                Pages {leftPage}{rightPage ? ` - ${rightPage}` : ''} of {images.length}
+              </span>
+            );
+          })()
+        )}
       </div>
     </div>
   );
