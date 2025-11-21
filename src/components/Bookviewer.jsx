@@ -4,10 +4,28 @@ import './Bookviewer.css';
 
 function BookViewer({ images = [], title }) {
   const bookRef = useRef(null);
+  const containerRef = useRef(null);
   const [currentSpread, setCurrentSpread] = useState(0);
   const [bookSize, setBookSize] = useState({ width: 900, height: 650 });
   const [scale, setScale] = useState(1);
   const [isSinglePage, setIsSinglePage] = useState(false);
+
+  // Zoom controls
+  const minScale = 0.5;
+  const maxScale = 2.2;
+  const zoomStep = 0.1;
+  const zoomIn = () => setScale(s => Math.min(maxScale, +(s + zoomStep).toFixed(2)));
+  const zoomOut = () => setScale(s => Math.max(minScale, +(s - zoomStep).toFixed(2)));
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoIntervalMs, setAutoIntervalMs] = useState(2500);
+  const toggleSpread = () => setIsSinglePage(v => !v);
+  const toggleAutoPlay = () => setAutoPlay(v => !v);
+  const enterFullscreen = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  };
 
   // Create spreads (pairs of pages)
   const spreads = useMemo(() => {
@@ -27,24 +45,32 @@ function BookViewer({ images = [], title }) {
       setIsSinglePage(mobile);
 
       if (mobile) {
-        // On mobile, use a larger, taller book to make pages more readable.
-        const bw = Math.round(w * 0.92); // ~92% of viewport width
-        const bh = Math.round(Math.min(h * 0.82, bw * 1.4)); // tall but not excessive
+        const bw = Math.round(w * 0.92);
+        const bh = Math.round(Math.min(h * 0.82, bw * 1.4));
         setBookSize({ width: bw, height: bh });
-        setScale(1);
+        setScale(s => (s === 1 ? 1 : s));
       } else {
-        const vw = Math.max(320, w - 48);
-        const bw = Math.min(1000, vw);
-        const bh = Math.round(bw * 0.72);
+        // Make desktop/laptop view a bit smaller than before
+        const vw = Math.max(320, w - 120); // more margin
+        const bw = Math.min(820, vw); // max width reduced from 1000 to 820
+        const bh = Math.round(bw * 0.68); // slightly less tall
         setBookSize({ width: bw, height: bh });
-        const s = Math.min(1, (w - 32) / bw);
-        setScale(s);
+        setScale(s => (s === 1 ? Math.min(1, (w - 80) / bw) : s));
       }
     };
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
   }, []);
+
+  // autoplay effect
+  useEffect(() => {
+    if (!autoPlay) return undefined;
+    const id = setInterval(() => {
+      try { next(); } catch (e) {}
+    }, autoIntervalMs);
+    return () => clearInterval(id);
+  }, [autoPlay, autoIntervalMs]);
 
   const onFlip = (e) => {
     // e.data is the current flipbook page index (0-based where each child is a spread)
@@ -62,7 +88,7 @@ function BookViewer({ images = [], title }) {
         </div>
       )}
 
-      <div className="flipbook-wrapper">
+      <div className="flipbook-wrapper" ref={containerRef}>
         <div className="flipbook-inner" style={{ width: bookSize.width, height: bookSize.height, transform: `scale(${scale})`, position: 'relative' }}>
           <HTMLFlipBook
             key={isSinglePage ? 'single' : 'spread'}
@@ -106,6 +132,43 @@ function BookViewer({ images = [], title }) {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
               <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Control Panel */}
+      <div className="bv-control-panel">
+        <div className="bv-cp-left">
+          <button className="bv-cp-btn" onClick={zoomOut} aria-label="Zoom Out" disabled={scale <= minScale}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
+          <button className="bv-cp-btn" onClick={zoomIn} aria-label="Zoom In" disabled={scale >= maxScale}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
+          <span className="bv-cp-zoom">{Math.round(scale * 100)}%</span>
+        </div>
+
+        <div className="bv-cp-center">
+          <button className="bv-cp-btn" onClick={toggleAutoPlay} aria-pressed={autoPlay} title="Play/Pause">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d={autoPlay?"M6 6h4v12H6zM14 6h4v12h-4z":"M5 3v18l15-9L5 3z"} stroke="currentColor" strokeWidth="0" fill="currentColor"/></svg>
+          </button>
+          <button className="bv-cp-btn" onClick={toggleSpread} title="Toggle single/two page">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="7" height="16" stroke="currentColor" strokeWidth="1.6"/><rect x="14" y="4" width="7" height="16" stroke="currentColor" strokeWidth="1.6"/></svg>
+          </button>
+          <button className="bv-cp-btn" title="Grid / Thumbnails">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="1.6"/><rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="1.6"/><rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="1.6"/><rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="1.6"/></svg>
+          </button>
+        </div>
+
+        <div className="bv-cp-right">
+          <button className="bv-cp-btn" onClick={prev} aria-label="Previous Page">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button className="bv-cp-btn" onClick={next} aria-label="Next Page">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button className="bv-cp-btn" onClick={enterFullscreen} title="Fullscreen">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3h8v2H5v6H3V3zm18 0v8h-2V5h-6V3h8zM3 21v-8h2v6h6v2H3zm18 0h-8v-2h6v-6h2v8z" fill="currentColor"/></svg>
           </button>
         </div>
       </div>
