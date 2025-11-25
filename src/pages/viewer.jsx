@@ -7,27 +7,28 @@ function Viewer() {
   const { bookId } = useParams();
   const [images, setImages] = useState([]);
 
-  useEffect(() => {
-    if (bookId === '1') {
-      const pageCount = 32;
-      const imgs = [];
-      for (let i = 1; i <= pageCount; i++) {
-        // require each image from assets
-        imgs.push(require(`../assets/images/${i}.jpg`));
+ useEffect(() => {
+  if (bookId === '1' || bookId === '2') {
+    const pageCount = bookId === '1' ? 32 : 10;
+    // require all .jpg files from the folder
+    const req = require.context('../assets/images', false, /\.jpg$/);
+    const imgs = [];
+
+    for (let i = 1; i <= pageCount; i++) {
+      const filename = `./${i}.jpg`;
+      if (req.keys().includes(filename)) {
+        imgs.push(req(filename));
+      } else {
+        // optional: push a placeholder or break if missing
+        console.warn('Missing image:', filename);
       }
-      setImages(imgs);
-    } else if (bookId === '2') {
-      // example for another issue
-      const pageCount = 10;  // e.g., 10 pages
-      const imgs = [];
-      for (let i = 1; i <= pageCount; i++) {
-        imgs.push(require(`../assets/images/${i}.jpg`));
-      }
-      setImages(imgs);
-    } else {
-      setImages([]);
     }
-  }, [bookId]);
+    setImages(imgs);
+  } else {
+    setImages([]);
+  }
+}, [bookId]);
+
 
   if (!images.length) {
     return <div>Loading or no pages found for this issue…</div>;
